@@ -59,11 +59,11 @@ class TransactionImportTest < ActiveSupport::TestCase
 
     @import.reload
 
-    assert_difference -> { Entry.count } => 3,
+    assert_difference -> { Entry.count } => 6,
                       -> { Transaction.count } => 3,
                       -> { Tag.count } => 1,
                       -> { Category.count } => 1,
-                      -> { Account.count } => 1 do
+                      -> { Account.count } => 2 do
       @import.publish
     end
 
@@ -95,7 +95,7 @@ class TransactionImportTest < ActiveSupport::TestCase
 
     @import.reload
 
-    assert_difference -> { Entry.count } => 3,
+    assert_difference -> { Entry.count } => 6,
                       -> { Transaction.count } => 3 do
       @import.publish
     end
@@ -263,7 +263,7 @@ class TransactionImportTest < ActiveSupport::TestCase
     @import.reload
 
     # Should create a new entry because the name is different
-    assert_difference -> { Entry.count } => 1,
+    assert_difference -> { Entry.count } => 2,
                       -> { Transaction.count } => 1 do
       @import.publish
     end
@@ -308,7 +308,7 @@ class TransactionImportTest < ActiveSupport::TestCase
 
     # Should update 1 existing and create 2 new (total of 3 in system)
     # The first matching row claims the existing entry, the other 2 create new ones
-    assert_difference -> { Entry.count } => 2,
+    assert_difference -> { Entry.count } => 4,
                       -> { Transaction.count } => 2 do
       @import.publish
     end
@@ -350,7 +350,7 @@ class TransactionImportTest < ActiveSupport::TestCase
     @import.reload
 
     # Should create all 3 as new transactions
-    assert_difference -> { Entry.count } => 3,
+    assert_difference -> { Entry.count } => 6,
                       -> { Transaction.count } => 3 do
       @import.publish
     end
@@ -389,7 +389,7 @@ class TransactionImportTest < ActiveSupport::TestCase
     @import.generate_rows_from_csv
     @import.reload
 
-    assert_difference -> { Entry.count } => 1 do
+    assert_difference -> { Entry.count } => 2 do
       @import.publish
     end
 
@@ -432,7 +432,7 @@ class TransactionImportTest < ActiveSupport::TestCase
     @import.reload
 
     # Should succeed without errors
-    assert_difference -> { Entry.count } => 2,
+    assert_difference -> { Entry.count } => 4,
                       -> { Transaction.count } => 2 do
       @import.publish
     end

@@ -77,8 +77,13 @@ class TransactionImport < Import
         entry.save!
       end
 
-      # Bulk import new transactions
-      Transaction.import!(new_transactions, recursive: true) if new_transactions.any?
+      # Import new transactions, attaching each to a balanced journal. Saved
+      # individually (rather than bulk import) so the Entry ids are available to
+      # post the balancing counter-entry.
+      new_transactions.each do |transaction|
+        transaction.save!
+        Accounting::Ledger.new(family).attach(transaction.entry)
+      end
     end
   end
 

@@ -284,6 +284,11 @@ class Account::ProviderImportAdapter
       entry.save!
       entry.transaction.save! if entry.transaction.changed?
 
+      # Post the balanced journal for posted (non-pending) transactions. Pending
+      # rows are attached when the provider later posts them, so their amounts
+      # never go stale. Idempotent via Entry#journal_id.
+      Accounting::Ledger.new(account.family).attach(entry) unless incoming_pending
+
       # Auto-resolve any open Goal pledges on this account whose tolerance
       # window matches the posted transaction. Idempotent via the partial-unique
       # index on transactions.extra->'goal'->>'pledge_id'.

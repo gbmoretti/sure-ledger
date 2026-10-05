@@ -57,13 +57,54 @@ module Accounting
       end
     end
 
+    # Makes an already-persisted, single-sided Transaction Entry the primary
+    # posting of a new balanced journal, adding the Uncategorized
+    # counter-posting. Idempotent: an entry that already has a journal is
+    # returned unchanged. Used by import/provider paths that build the Entry
+    # themselves.
+    def attach(entry, counter_type: nil)
+      return entry if entry.journal_id.present?
+      return entry unless entry.entryable_type == "Transaction"
+
+      currency = entry.currency.presence || currency_for(entry.account)
+      sure_minor = Money.parse(entry.amount, currency).minor_units
+      ledger_minor = SignConvention.to_ledger(sure_minor)
+      type = counter_type || (sure_minor.negative? ? :income : :expenses)
+      counter = system_account(type == :income ? "Income:Uncategorized" : "Expenses:Uncategorized", currency)
+
+      Journal.transaction do
+        journal = family.journals.create!(
+          date: entry.date,
+          description: entry.name,
+          currency: currency,
+          source: entry.source.presence,
+          external_id: entry.external_id.present? ? "#{entry.account_id}:#{entry.external_id}" : nil,
+          kind: entry.entryable&.kind.presence || "standard"
+        )
+
+        entry.update!(journal: journal, amount_minor: ledger_minor, posting_role: "primary")
+
+        counter.entries.create!(
+          journal: journal,
+          date: entry.date,
+          name: entry.name,
+          amount: Money.from_minor(SignConvention.to_sure(-ledger_minor), currency).to_d,
+          amount_minor: -ledger_minor,
+          currency: currency,
+          posting_role: "counter"
+        )
+      end
+
+      entry
+    end
+
     # Creates an account's opening balance as an ordinary balanced journal
     # against Equity:Opening-Balances (replaces the opening-anchor Valuation).
     def open_account(account, opening_balance:, opened_on: nil)
       return if opening_balance.zero?
 
       record = account_record(account)
-      equity = system_account!("Equity:Opening-Balances", currency_for(record))
+      equity = system_account("Equity:Opening-Balances", currency_for(record))
 
       post(
         date: opened_on || Date.current,
@@ -117,7 +158,7 @@ module Accounting
     # The only sanctioned way to make the books match reality.
     def adjust(account, amount:, reason:, date: Date.current)
       record = account_record(account)
-      counter = system_account!("Expenses:Bank-Adjustment", currency_for(record))
+      counter = system_account("Expenses:Bank-Adjustment", currency_for(record))
 
       post(
         date: date,
@@ -248,8 +289,8 @@ module Accounting
         end
       end
 
-      def system_account!(name, currency)
-        family.accounts.find_by(name: name, system: true) || family.accounts.create!(
+      def system_account(name, currency)
+        family.accounts.find_by(name: name, system: true, currency: currency) || family.accounts.create!(
           name: name,
           accountable: LedgerAccount.new,
           balance: 0,
@@ -258,6 +299,7 @@ module Accounting
           system: true
         )
       end
+      public :system_account
 
       def account_record(value)
         case value

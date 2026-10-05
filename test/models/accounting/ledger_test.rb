@@ -109,6 +109,31 @@ class Accounting::LedgerTest < ActiveSupport::TestCase
     assert_equal 1, @family.journals.where(source: "bank", external_id: "abc123").count
   end
 
+  def test_attach_balances_an_existing_single_sided_entry
+    entry = @checking.entries.create!(date: Date.current, name: "Legacy", amount: 100, currency: "USD", entryable: Transaction.new)
+
+    @ledger.attach(entry)
+    entry.reload
+
+    assert entry.journal.present?
+    assert_equal(-10_000, entry.amount_minor)
+    assert_equal "primary", entry.posting_role
+    assert entry.journal.balanced?
+    assert @ledger.balanced?
+    assert_equal 1, entry.journal.postings.where(posting_role: "counter").count
+  end
+
+  def test_attach_is_idempotent
+    entry = @checking.entries.create!(date: Date.current, name: "Legacy", amount: 100, currency: "USD", entryable: Transaction.new)
+
+    @ledger.attach(entry)
+    journal = entry.reload.journal
+    @ledger.attach(entry)
+
+    assert_equal journal.id, entry.reload.journal_id
+    assert_equal 1, @family.journals.count
+  end
+
   private
 
     def create_system_account(name, _type)
