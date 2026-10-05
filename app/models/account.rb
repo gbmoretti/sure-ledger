@@ -24,6 +24,7 @@ class Account < ApplicationRecord
   has_many :trades, through: :entries, source: :entryable, source_type: "Trade"
   has_many :holdings, dependent: :destroy
   has_many :balances, dependent: :destroy
+  has_many :balance_observations, class_name: "Accounting::BalanceObservation", dependent: :destroy
   has_many :recurring_transactions, dependent: :destroy
   has_many :goal_accounts, dependent: :destroy
   has_many :goals, through: :goal_accounts
@@ -46,6 +47,11 @@ class Account < ApplicationRecord
 
   scope :visible, -> { where(status: VISIBLE_STATUSES) }
   scope :historical, -> { where(status: HISTORICAL_STATUSES) }
+  # Ledger-only balancing accounts (Equity/Income/Expense and the uncategorized
+  # / suspense accounts). Phase 1 adds the flag; Phase 4 starts excluding them
+  # from user-facing scopes.
+  scope :system_managed, -> { where(system: true) }
+  scope :user_facing, -> { where(system: false) }
   # Accounts whose data should be included in financial reports, dashboards,
   # and exports. Excludes accounts where the user has opted to suppress them.
   scope :included_in_reports, -> { where(exclude_from_reports: false) }

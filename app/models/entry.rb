@@ -9,6 +9,7 @@ class Entry < ApplicationRecord
   monetize :amount
 
   belongs_to :account
+  belongs_to :journal, class_name: "Accounting::Journal", optional: true
   belongs_to :transfer, optional: true
   belongs_to :import, optional: true
   belongs_to :parent_entry, class_name: "Entry", optional: true
