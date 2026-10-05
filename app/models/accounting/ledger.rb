@@ -180,6 +180,29 @@ module Accounting
       )
     end
 
+    # Merges two already-persisted single-sided transaction entries (the two
+    # legs of a same-currency transfer) into one balanced journal, discarding
+    # their Uncategorized counter-postings. Returns the shared journal.
+    def merge_as_transfer(first_entry, second_entry)
+      first_entry = attach(first_entry)
+      second_entry = attach(second_entry)
+
+      first_journal = first_entry.journal
+      second_journal = second_entry.journal
+
+      Journal.transaction do
+        (first_journal.postings.to_a + second_journal.postings.to_a).each do |posting|
+          posting.destroy! if posting.posting_role == "counter"
+        end
+
+        second_entry.update!(journal: first_journal)
+
+        second_journal.destroy! if second_journal.postings.reload.empty?
+      end
+
+      first_journal
+    end
+
     # The only sanctioned way to make the books match reality.
     def adjust(account, amount:, reason:, date: Date.current)      record = account_record(account)
                                                                    counter = system_account("Expenses:Bank-Adjustment", currency_for(record))

@@ -134,6 +134,20 @@ class Accounting::LedgerTest < ActiveSupport::TestCase
     assert_equal 1, @family.journals.count
   end
 
+  def test_merge_as_transfer_combines_two_entries_into_one_journal
+    savings = create_system_account("Assets:Savings", :assets)
+    out = @checking.entries.create!(date: Date.current, name: "Transfer", amount: 100, currency: "USD", entryable: Transaction.new)
+    incoming = savings.entries.create!(date: Date.current, name: "Transfer", amount: -100, currency: "USD", entryable: Transaction.new)
+
+    journal = @ledger.merge_as_transfer(out, incoming)
+
+    assert_equal 2, journal.postings.count
+    assert journal.balanced?
+    assert_equal journal.id, out.reload.journal_id
+    assert_equal journal.id, incoming.reload.journal_id
+    assert_equal 0, journal.postings.where(posting_role: "counter").count
+  end
+
   private
 
     def create_system_account(name, _type)

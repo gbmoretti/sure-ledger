@@ -63,6 +63,16 @@ class Transfer::Creator
       apply_tags!(transfer) if tag_ids.any?
     end
 
+    # Same-currency transfers become one balanced journal (both legs in the same
+    # ledger entry, no Uncategorized counter). Cross-currency transfers keep
+    # their two single-sided legs until the FX work in Phase 11.
+    if source_account.currency == destination_account.currency
+      Accounting::Ledger.new(family).merge_as_transfer(
+        transfer.outflow_transaction.entry,
+        transfer.inflow_transaction.entry
+      )
+    end
+
     source_account.sync_later
     destination_account.sync_later
 
