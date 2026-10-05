@@ -155,20 +155,44 @@ module Accounting
       )
     end
 
-    # The only sanctioned way to make the books match reality.
-    def adjust(account, amount:, reason:, date: Date.current)
-      record = account_record(account)
-      counter = system_account("Expenses:Bank-Adjustment", currency_for(record))
+    # Converts an existing single-sided transaction into one leg of a balanced
+    # transfer journal: ensures a journal exists, replaces its Uncategorized
+    # counter-posting with a posting on the target account, and returns the new
+    # counterpart Entry.
+    def convert_to_transfer(source_entry, target_account, counterpart_attributes: {})
+      attach(source_entry) unless source_entry.journal_id.present?
 
-      post(
-        date: date,
-        description: reason,
-        postings: [
-          { account: record, amount_minor: amount.minor_units, role: "primary" },
-          { account: counter, amount_minor: -amount.minor_units, role: "counter" }
-        ],
-        kind: "adjustment"
+      journal = source_entry.journal
+      source_minor = source_entry.amount_minor.to_i
+      currency = journal.currency
+
+      journal.postings.where(posting_role: "counter").find_each(&:destroy!)
+
+      target_account.entries.create!(
+        journal: journal,
+        date: source_entry.date,
+        name: counterpart_attributes[:name] || "Transfer",
+        amount: Money.from_minor(SignConvention.to_sure(-source_minor), currency).to_d,
+        amount_minor: -source_minor,
+        currency: currency,
+        posting_role: "counter",
+        entryable: Transaction.new(counterpart_attributes.except(:name))
       )
+    end
+
+    # The only sanctioned way to make the books match reality.
+    def adjust(account, amount:, reason:, date: Date.current)      record = account_record(account)
+                                                                   counter = system_account("Expenses:Bank-Adjustment", currency_for(record))
+
+                                                                   post(
+                                                                     date: date,
+                                                                     description: reason,
+                                                                     postings: [
+                                                                       { account: record, amount_minor: amount.minor_units, role: "primary" },
+                                                                       { account: counter, amount_minor: -amount.minor_units, role: "counter" }
+                                                                     ],
+                                                                     kind: "adjustment"
+                                                                   )
     end
 
     # --- observations and reconciliation -----------------------------------

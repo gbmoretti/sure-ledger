@@ -15,15 +15,31 @@ class Rule::ActionExecutor::SetAsTransferOrPayment < Rule::ActionExecutor
     count_modified_resources(scope) do |txn|
       entry = txn.entry
       unless txn.transfer?
-        transfer = build_transfer(target_account, entry)
+        destination_account = target_account
+        outflow_kind = Transfer.kind_for_account(destination_account)
+
+        counterpart_entry = Accounting::Ledger.new(family).convert_to_transfer(
+          entry,
+          destination_account,
+          counterpart_attributes: {
+            name: "#{destination_account.liability? ? "Payment" : "Transfer"} #{entry.amount.negative? ? "to #{destination_account.name}" : "from #{entry.account.name}"}",
+            kind: "funds_movement"
+          }
+        )
+
+        # The Transfer join is kept for the transfers UI until Phase 7 derives
+        # the counterpart from the journal instead.
+        transfer = nil
         Transfer.transaction do
+          transfer = Transfer.find_or_initialize_by(
+            inflow_transaction: entry.amount.positive? ? counterpart_entry.transaction : entry.transaction,
+            outflow_transaction: entry.amount.positive? ? entry.transaction : counterpart_entry.transaction
+          )
+          transfer.status = "confirmed"
           transfer.save!
 
           # Use DESTINATION (inflow) account for kind, matching Transfer::Creator logic
-          destination_account = transfer.inflow_transaction.entry.account
-          outflow_kind = Transfer.kind_for_account(destination_account)
           outflow_attrs = { kind: outflow_kind }
-
           if outflow_kind == "investment_contribution"
             category = destination_account.family.investment_contributions_category
             outflow_attrs[:category] = category if category.present? && transfer.outflow_transaction.category_id.blank?
@@ -37,24 +53,4 @@ class Rule::ActionExecutor::SetAsTransferOrPayment < Rule::ActionExecutor
       end
     end
   end
-
-  private
-    def build_transfer(target_account, entry)
-      missing_transaction = Transaction.new(
-        entry: target_account.entries.build(
-          amount: entry.amount * -1,
-          currency: entry.currency,
-          date: entry.date,
-          name: "#{target_account.liability? ? "Payment" : "Transfer"} #{entry.amount.negative? ? "to #{target_account.name}" : "from #{entry.account.name}"}",
-          user_modified: true,
-        )
-      )
-
-      transfer = Transfer.find_or_initialize_by(
-        inflow_transaction: entry.amount.positive? ? missing_transaction : entry.transaction,
-        outflow_transaction: entry.amount.positive? ? entry.transaction : missing_transaction
-      )
-      transfer.status = "confirmed"
-      transfer
-    end
 end
