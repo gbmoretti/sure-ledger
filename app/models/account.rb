@@ -45,16 +45,16 @@ class Account < ApplicationRecord
   VISIBLE_STATUSES = %w[draft active].freeze
   HISTORICAL_STATUSES = (VISIBLE_STATUSES + %w[disabled]).freeze
 
-  scope :visible, -> { where(status: VISIBLE_STATUSES) }
-  scope :historical, -> { where(status: HISTORICAL_STATUSES) }
+  scope :visible, -> { where(status: VISIBLE_STATUSES, system: false) }
+  scope :historical, -> { where(status: HISTORICAL_STATUSES, system: false) }
   # Ledger-only balancing accounts (Equity/Income/Expense and the uncategorized
-  # / suspense accounts). Phase 1 adds the flag; Phase 4 starts excluding them
-  # from user-facing scopes.
+  # / suspense accounts). Phase 1 adds the flag; Phase 4 excludes them from
+  # every user-facing scope so they never reach the UI, net worth or reports.
   scope :system_managed, -> { where(system: true) }
   scope :user_facing, -> { where(system: false) }
   # Accounts whose data should be included in financial reports, dashboards,
   # and exports. Excludes accounts where the user has opted to suppress them.
-  scope :included_in_reports, -> { where(exclude_from_reports: false) }
+  scope :included_in_reports, -> { where(exclude_from_reports: false, system: false) }
   scope :assets, -> { where(classification: "asset") }
   scope :liabilities, -> { where(classification: "liability") }
   scope :alphabetically, -> { order(:name) }
@@ -62,6 +62,7 @@ class Account < ApplicationRecord
     left_joins(:account_providers)
       .where(account_providers: { id: nil })
       .where(plaid_account_id: nil, simplefin_account_id: nil)
+      .where(system: false)
   }
 
   scope :visible_manual, -> {
