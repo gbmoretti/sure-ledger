@@ -12,6 +12,26 @@ No need to preserve the current accounting database schema
 Goal: a fresh installation boots directly on the double-entry ledger while the
 existing UI, `/api/v1`, and most of Sure keep working.
 
+## Locked decisions
+
+| Decision | Choice |
+|---|---|
+| Posting storage | **P1** — reuse `entries` as postings (add `journal_id`; ≥2 balanced rows per event) |
+| Counter-accounts | Rows in `accounts` with a `system`/`ledger_only` flag, excluded from net worth, reports, provider scopes and `/api/v1/accounts` |
+| Money | **Integer minor units, ledger-only** — `entries.amount_minor` (bigint) is authoritative; `entries.amount` decimal(19,4) stays a derived projection for existing consumers |
+| Categories | **Option B** — `transactions.category_id` stays UI/report metadata; hidden ledger accounts do the balancing |
+| First stack | **MVP — phases 0–9**; reports hardening and investments/FX deferred |
+| CI | Red intermediates allowed; the stack merges atomically; the final PR greens CI |
+
+Stack ordering corrections to this plan:
+
+- Phase 1 is **additive only** (`journals`, `entries.journal_id`, `amount_minor`, posting-role
+  marker, `balance_observations`). Every `DROP` moves to the phase that removes its last
+  reference: `transfers`/`transfer_id` in Phase 7, `flows_factor` in Phase 8, anchor kinds in
+  Phases 4/9.
+- Phase 6's transfer rule action must land **before** Phase 7 deletes `Transfer`, so either
+  Phase 6 is not skipped or its rule change is folded into Phase 7.
+
 Guiding rules:
 - Keep one accounting boundary: `Accounting::Ledger`.
 - Keep `entries`/`balances` as projections/caches so consumers and raw SQL stay green.
