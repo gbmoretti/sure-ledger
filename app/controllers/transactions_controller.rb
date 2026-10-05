@@ -155,16 +155,22 @@ class TransactionsController < ApplicationController
       return
     end
 
-    @entry = account.entries.new(entry_params_with_idempotency_key(idempotency_key))
+    begin
+      @entry = Accounting::PostTransaction.new(
+        family: Current.family,
+        account: account,
+        attributes: entry_params_with_idempotency_key(idempotency_key)
+      ).call
 
-    if @entry.save
       @entry.sync_account_later
       @entry.lock_saved_attributes!
       @entry.mark_user_modified!
       @entry.transaction.lock_attr!(:tag_ids) if @entry.transaction.tags.any?
 
       respond_with_created_entry(@entry)
-    else
+    rescue ActiveRecord::RecordInvalid
+      @entry = account.entries.new(entry_params_with_idempotency_key(idempotency_key))
+      @entry.valid?
       set_new_transaction_form_options
       render :new, status: :unprocessable_entity
     end

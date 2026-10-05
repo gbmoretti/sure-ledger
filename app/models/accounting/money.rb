@@ -50,6 +50,10 @@ module Accounting
           new(scaled.numerator, currency)
         when String, BigDecimal
           from_big_decimal(BigDecimal(value.to_s), currency)
+        when Float
+          # Floats are accepted only at the boundary and converted through their
+          # string form; the stored representation is still exact minor units.
+          from_big_decimal(BigDecimal(value.to_s), currency)
         else
           raise ArgumentError, "cannot parse #{value.inspect} as Money"
         end

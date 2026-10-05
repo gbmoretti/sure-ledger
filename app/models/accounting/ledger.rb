@@ -39,15 +39,18 @@ module Accounting
         )
 
         normalized.each do |posting|
-          posting[:account].entries.create!(
+          entry_attributes = {
             journal: journal,
             date: date,
-            name: description,
+            name: posting[:name] || description,
             amount: posting[:amount].to_d,
             amount_minor: posting[:ledger_minor],
             currency: posting[:currency],
-            posting_role: posting[:role]
-          )
+            posting_role: posting[:role],
+            entryable: posting[:entryable]
+          }.merge(posting[:entry_attributes])
+
+          posting[:account].entries.create!(entry_attributes)
         end
 
         journal
@@ -208,7 +211,7 @@ module Accounting
       def normalize_posting(posting)
         account = account_record(posting.fetch(:account))
         ledger_minor = minor_of(posting)
-        currency = currency_for(account)
+        currency = posting[:currency] || currency_for(account)
         sure_money = Money.from_minor(SignConvention.to_sure(ledger_minor), currency)
 
         {
@@ -216,9 +219,12 @@ module Accounting
           ledger_minor: ledger_minor,
           currency: currency,
           amount: sure_money,
-          role: (posting[:role] || "primary").to_s
+          role: (posting[:role] || "primary").to_s,
+          name: posting[:name],
+          entryable: posting[:entryable],
+          entry_attributes: posting[:entry_attributes] || {}
         }
-      end
+        end
 
       def minor_of(posting)
         value = posting[:amount_minor] || posting[:amount]

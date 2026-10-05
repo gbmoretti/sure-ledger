@@ -541,7 +541,7 @@ class Api::V1::TransactionsControllerTest < ActionDispatch::IntegrationTest
       }
     }
 
-    assert_difference("Entry.count", 2) do
+    assert_difference("Entry.count", 4) do
       post api_v1_transactions_url,
            params: transaction_params,
            headers: api_headers(@api_key)

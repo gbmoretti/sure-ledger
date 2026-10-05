@@ -99,26 +99,28 @@ class TransactionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "creates with transaction details" do
-    assert_difference [ "Entry.count", "Transaction.count" ], 1 do
-      post transactions_url, params: {
-        entry: {
-          account_id: @entry.account_id,
-          name: "New transaction",
-          date: Date.current,
-          currency: "USD",
-          amount: 100,
-          nature: "inflow",
-          entryable_type: @entry.entryable_type,
-          entryable_attributes: {
-            tag_ids: [ tags(:one).id, tags(:two).id ],
-            category_id: Category.first.id,
-            merchant_id: Merchant.first.id
+    assert_difference "Transaction.count", 1 do
+      assert_difference "Entry.count", 2 do
+        post transactions_url, params: {
+          entry: {
+            account_id: @entry.account_id,
+            name: "New transaction",
+            date: Date.current,
+            currency: "USD",
+            amount: 100,
+            nature: "inflow",
+            entryable_type: @entry.entryable_type,
+            entryable_attributes: {
+              tag_ids: [ tags(:one).id, tags(:two).id ],
+              category_id: Category.first.id,
+              merchant_id: Merchant.first.id
+            }
           }
         }
-      }
+      end
     end
 
-    created_entry = Entry.order(:created_at).last
+    created_entry = Entry.where(posting_role: "primary").order(:created_at).last
 
     assert_redirected_to account_url(created_entry.account)
     assert_equal "Transaction created", flash[:notice]
@@ -141,11 +143,13 @@ class TransactionsControllerTest < ActionDispatch::IntegrationTest
       }
     }
 
-    assert_difference [ "Entry.count", "Transaction.count" ], 1 do
-      post transactions_url, params: params
+    assert_difference "Transaction.count", 1 do
+      assert_difference "Entry.count", 2 do
+        post transactions_url, params: params
+      end
     end
     assert_response :redirect
-    first_entry = Entry.order(:created_at).last
+    first_entry = Entry.where(posting_role: "primary").order(:created_at).last
 
     # Simulates a double-click or a browser retry: same form, same
     # idempotency key, submitted again after the first request already
@@ -230,7 +234,7 @@ class TransactionsControllerTest < ActionDispatch::IntegrationTest
     # succeeded - the error should propagate instead of being hidden behind
     # a fake success redirect.
     TransactionsController.any_instance.stubs(:find_duplicate_manual_entry).returns(nil)
-    Entry.any_instance.stubs(:save).raises(ActiveRecord::RecordNotUnique.new("duplicate key value violates unique constraint"))
+    Entry.any_instance.stubs(:save!).raises(ActiveRecord::RecordNotUnique.new("duplicate key value violates unique constraint"))
 
     assert_raises(ActiveRecord::RecordNotUnique) do
       post transactions_url, params: {
@@ -252,20 +256,22 @@ class TransactionsControllerTest < ActionDispatch::IntegrationTest
     # A raw POST that doesn't go through the rendered form (e.g. a script)
     # simply skips the idempotency check rather than being rejected - the
     # form always supplies a key in normal browser usage.
-    assert_difference [ "Entry.count", "Transaction.count" ], 2 do
-      2.times do
-        post transactions_url, params: {
-          entry: {
-            account_id: @entry.account_id,
-            name: "New transaction",
-            date: Date.current,
-            currency: "USD",
-            amount: 100,
-            nature: "inflow",
-            entryable_type: "Transaction",
-            entryable_attributes: { category_id: Category.first.id }
+    assert_difference "Transaction.count", 2 do
+      assert_difference "Entry.count", 4 do
+        2.times do
+          post transactions_url, params: {
+            entry: {
+              account_id: @entry.account_id,
+              name: "New transaction",
+              date: Date.current,
+              currency: "USD",
+              amount: 100,
+              nature: "inflow",
+              entryable_type: "Transaction",
+              entryable_attributes: { category_id: Category.first.id }
+            }
           }
-        }
+        end
       end
     end
   end
@@ -1283,25 +1289,27 @@ end
       accountable: Depository.new
     )
 
-    assert_difference [ "Entry.count", "Transaction.count" ], 1 do
-      post transactions_url, params: {
-        entry: {
-          account_id: account.id,
-          name: "EUR transaction with custom rate",
-          date: Date.current,
-          currency: "EUR",
-          amount: 100,
-          nature: "outflow",
-          entryable_type: "Transaction",
-          entryable_attributes: {
-            category_id: Category.first.id,
-            exchange_rate: "1.5"
+    assert_difference "Transaction.count", 1 do
+      assert_difference "Entry.count", 2 do
+        post transactions_url, params: {
+          entry: {
+            account_id: account.id,
+            name: "EUR transaction with custom rate",
+            date: Date.current,
+            currency: "EUR",
+            amount: 100,
+            nature: "outflow",
+            entryable_type: "Transaction",
+            entryable_attributes: {
+              category_id: Category.first.id,
+              exchange_rate: "1.5"
+            }
           }
         }
-      }
+      end
     end
 
-    created_entry = Entry.order(:created_at).last
+    created_entry = Entry.where(posting_role: "primary").order(:created_at).last
     assert_equal "EUR", created_entry.currency
     assert_equal 100, created_entry.amount
     assert_equal 1.5, created_entry.transaction.extra["exchange_rate"]
@@ -1315,24 +1323,26 @@ end
       accountable: Depository.new
     )
 
-    assert_difference [ "Entry.count", "Transaction.count" ], 1 do
-      post transactions_url, params: {
-        entry: {
-          account_id: account.id,
-          name: "EUR transaction without custom rate",
-          date: Date.current,
-          currency: "EUR",
-          amount: 100,
-          nature: "outflow",
-          entryable_type: "Transaction",
-          entryable_attributes: {
-            category_id: Category.first.id
+    assert_difference "Transaction.count", 1 do
+      assert_difference "Entry.count", 2 do
+        post transactions_url, params: {
+          entry: {
+            account_id: account.id,
+            name: "EUR transaction without custom rate",
+            date: Date.current,
+            currency: "EUR",
+            amount: 100,
+            nature: "outflow",
+            entryable_type: "Transaction",
+            entryable_attributes: {
+              category_id: Category.first.id
+            }
           }
         }
-      }
+      end
     end
 
-    created_entry = Entry.order(:created_at).last
+    created_entry = Entry.where(posting_role: "primary").order(:created_at).last
     assert_nil created_entry.transaction.extra["exchange_rate"]
   end
 

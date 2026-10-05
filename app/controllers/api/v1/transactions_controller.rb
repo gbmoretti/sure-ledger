@@ -96,9 +96,13 @@ class Api::V1::TransactionsController < Api::V1::BaseController
       return render_existing_idempotent_entry(existing_entry)
     end
 
-    @entry = account.entries.new(entry_params_for_create)
+    begin
+      @entry = Accounting::PostTransaction.new(
+        family: family,
+        account: account,
+        attributes: entry_params_for_create
+      ).call
 
-    if @entry.save
       @entry.lock_saved_attributes!
       @entry.transaction.lock_attr!(:tag_ids) if @entry.transaction.tags.any?
       @entry.mark_user_modified! if user_modified_requested?
@@ -106,7 +110,9 @@ class Api::V1::TransactionsController < Api::V1::BaseController
 
       @transaction = @entry.transaction
       render :show, status: :created
-    else
+    rescue ActiveRecord::RecordInvalid
+      @entry = account.entries.new(entry_params_for_create)
+      @entry.valid?
       render json: {
         error: "validation_failed",
         message: "Transaction could not be created",

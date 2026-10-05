@@ -111,14 +111,14 @@ class Accounting::LedgerTest < ActiveSupport::TestCase
 
   private
 
-  def create_system_account(name, _type)
-    @family.accounts.create!(
-      name: name,
-      accountable: LedgerAccount.new,
-      balance: 0,
-      cash_balance: 0,
-      currency: "USD",
-      system: true
-    )
-  end
+    def create_system_account(name, _type)
+      @family.accounts.create!(
+        name: name,
+        accountable: LedgerAccount.new,
+        balance: 0,
+        cash_balance: 0,
+        currency: "USD",
+        system: true
+      )
+    end
 end
