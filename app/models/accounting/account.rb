@@ -5,7 +5,7 @@ module Accounting
     attr_reader :id, :name, :type, :currency, :opening_balance
 
     def initialize(id:, name:, type:, currency:, opening_balance: nil)
-      @id = Integer(id)
+      @id = id
       @name = name.to_s
       @type = AccountType.coerce(type)
       @currency = currency.is_a?(::Money::Currency) ? currency : ::Money::Currency.new(currency)
@@ -16,6 +16,16 @@ module Accounting
       end
 
       freeze
+    end
+
+    # Wraps a persisted Sure Account record.
+    def self.from_record(record)
+      new(
+        id: record.id,
+        name: record.name,
+        type: AccountType.for_record(record),
+        currency: record.currency.presence || record.family.currency
+      )
     end
 
     def asset?

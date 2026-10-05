@@ -113,6 +113,12 @@ module Accounting
       self.class.new(minor_units.abs, currency)
     end
 
+    # The value in MAJOR units as an exact decimal, for projecting onto Sure's
+    # existing decimal(19,4) columns.
+    def to_d
+      BigDecimal(minor_units) / (10**exponent)
+    end
+
     def zero?
       minor_units.zero?
     end

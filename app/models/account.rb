@@ -684,6 +684,8 @@ class Account < ApplicationRecord
       :non_cash
     when "Investment", "Crypto"
       :investment
+    when "LedgerAccount"
+      :non_cash
     else
       raise "Unknown account type: #{accountable_type}"
     end

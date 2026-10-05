@@ -15,12 +15,12 @@ require "minitest/autorun"
 #
 # Deliberately a plain Minitest::Test (not ActiveSupport::TestCase): the domain
 # is pure Ruby and needs no database or fixtures.
-class Accounting::LedgerTest < Minitest::Test
+class Accounting::MemoryLedgerTest < Minitest::Test
   USD = ::Money::Currency.new("USD")
   DAY = Date.new(2026, 10, 5)
 
   def setup
-    @ledger = Accounting::Ledger.new
+    @ledger = Accounting::MemoryLedger.new
   end
 
   def money(value)
@@ -446,7 +446,7 @@ class Accounting::LedgerTest < Minitest::Test
   private
 
     def expense_ledger(amounts)
-      ledger = Accounting::Ledger.new
+      ledger = Accounting::MemoryLedger.new
       ledger.create_account(name: "Assets:Checking", type: :assets, currency: USD)
       ledger.create_account(name: "Expenses:Food", type: :expenses, currency: USD)
 
@@ -465,7 +465,7 @@ class Accounting::LedgerTest < Minitest::Test
     end
 
     def new_mixed_ledger
-      ledger = Accounting::Ledger.new
+      ledger = Accounting::MemoryLedger.new
       ledger.create_account(name: "Assets:Checking", type: :assets, currency: USD)
       ledger.create_account(name: "Assets:Savings", type: :assets, currency: USD)
       ledger.create_account(name: "Expenses:Food", type: :expenses, currency: USD)

@@ -209,10 +209,9 @@ Ledger convention: debit-positive, liabilities/income/equity negative
 Translation must live in exactly one place at the boundary:
 
 ```ruby
-# conceptual
-def to_posting_amount(entry_amount, account) # Sure -> ledger
-  account.asset? ? -entry_amount : entry_amount
-end
+# conceptual: Sure's sign already encodes the balance direction, so the
+# real-account posting is a pure negation; the counter-posting balances.
+Accounting::SignConvention.to_ledger(entry_amount) # => -entry_amount
 ```
 
 All write paths and the materializer use it; net worth and account-balance tests

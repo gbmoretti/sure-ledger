@@ -23,7 +23,7 @@ class Accounting::SystemAccountsTest < Minitest::Test
   end
 
   def test_seed_creates_accounts_with_expected_types
-    ledger = Accounting::Ledger.new
+    ledger = Accounting::MemoryLedger.new
     Accounting::SystemAccounts.seed!(ledger, currency: USD)
 
     assert ledger.find_account("Equity:Opening-Balances").equity?
@@ -34,7 +34,7 @@ class Accounting::SystemAccountsTest < Minitest::Test
   end
 
   def test_seed_is_idempotent
-    ledger = Accounting::Ledger.new
+    ledger = Accounting::MemoryLedger.new
     Accounting::SystemAccounts.seed!(ledger, currency: USD)
     Accounting::SystemAccounts.seed!(ledger, currency: USD)
 

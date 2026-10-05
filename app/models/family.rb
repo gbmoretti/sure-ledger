@@ -54,6 +54,7 @@ class Family < ApplicationRecord
 
   has_many :entries, through: :accounts
   has_many :transactions, through: :accounts
+  has_many :journals, class_name: "Accounting::Journal", dependent: :destroy
   has_many :rules, dependent: :destroy
   has_many :trades, through: :accounts
   has_many :holdings, through: :accounts

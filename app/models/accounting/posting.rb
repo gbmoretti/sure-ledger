@@ -6,8 +6,8 @@ module Accounting
     attr_reader :id, :account_id, :amount, :transaction_id
 
     def initialize(id:, account_id:, amount:, transaction_id:)
-      @id = Integer(id)
-      @account_id = Integer(account_id)
+      @id = id
+      @account_id = account_id
       @amount = amount
       @transaction_id = transaction_id
       freeze

@@ -29,6 +29,30 @@ module Accounting
       NORMAL_BALANCES.keys
     end
 
+    # Derives the accounting type of a persisted Sure Account. System
+    # (ledger-only) accounts carry their type in the hierarchical name; user
+    # accounts use Sure's asset/liability classification.
+    def self.for_record(record)
+      if record.respond_to?(:system?) && record.system?
+        type_from_name(record.name)
+      else
+        new(record.classification == "liability" ? :liabilities : :assets)
+      end
+    end
+
+    def self.type_from_name(name)
+      root = name.to_s.split(":").first&.downcase
+      case root
+      when "assets" then new(:assets)
+      when "liabilities" then new(:liabilities)
+      when "equity" then new(:equity)
+      when "income" then new(:income)
+      when "expenses" then new(:expenses)
+      else
+        raise Errors::UnknownAccountTypeError, "cannot derive accounting type from #{name.inspect}"
+      end
+    end
+
     def debit_normal?
       normal_balance == :debit
     end

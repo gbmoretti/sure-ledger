@@ -8,7 +8,7 @@ module Accounting
 
     def initialize(id:, date:, description:, postings:, source: nil, external_id: nil,
                    metadata: {}, reversal_of: nil, opening: false)
-      @id = Integer(id)
+      @id = id
       @date = date
       @description = description.to_s
       @postings = postings.freeze

@@ -6,7 +6,7 @@ module Accounting
                 :difference_signed, :observed_at
 
     def initialize(account_id:, ledger_balance:, external_balance:, observed_at: nil)
-      @account_id = Integer(account_id)
+      @account_id = account_id
       @ledger_balance = ledger_balance
       @external_balance = external_balance
       @observed_at = observed_at
