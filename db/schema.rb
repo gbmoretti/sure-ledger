@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_05_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -120,6 +120,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
     t.uuid "simplefin_account_id"
     t.string "status", default: "active"
     t.string "subtype"
+    t.boolean "system", default: false, null: false
     t.datetime "updated_at", null: false
     t.index ["accountable_id", "accountable_type"], name: "index_accounts_on_accountable_id_and_accountable_type"
     t.index ["accountable_type"], name: "index_accounts_on_accountable_type"
@@ -129,6 +130,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
     t.index ["family_id", "id"], name: "index_accounts_on_family_id_and_id"
     t.index ["family_id", "status", "accountable_type"], name: "index_accounts_on_family_id_status_accountable_type"
     t.index ["family_id", "status"], name: "index_accounts_on_family_id_and_status"
+    t.index ["family_id", "system"], name: "index_accounts_on_family_id_and_system"
     t.index ["family_id"], name: "index_accounts_on_family_id"
     t.index ["import_id"], name: "index_accounts_on_import_id"
     t.index ["owner_id"], name: "index_accounts_on_owner_id"
@@ -251,6 +253,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
     t.datetime "updated_at", null: false
     t.index ["download_token_digest"], name: "index_archived_exports_on_download_token_digest", unique: true
     t.index ["expires_at"], name: "index_archived_exports_on_expires_at"
+  end
+
+  create_table "balance_observations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "amount", precision: 19, scale: 4, null: false
+    t.datetime "created_at", null: false
+    t.string "currency", null: false
+    t.string "kind", null: false
+    t.datetime "observed_at", null: false
+    t.string "source", null: false
+    t.string "source_id"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "source", "kind", "observed_at"], name: "index_balance_observations_on_identity", unique: true
+    t.index ["account_id"], name: "index_balance_observations_on_account_id"
   end
 
   create_table "balances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -702,6 +718,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
   create_table "entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.decimal "amount", precision: 19, scale: 4, null: false
+    t.bigint "amount_minor"
     t.datetime "created_at", null: false
     t.string "currency"
     t.date "date"
@@ -712,11 +729,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
     t.string "idempotency_key"
     t.uuid "import_id"
     t.boolean "import_locked", default: false, null: false
+    t.uuid "journal_id"
     t.jsonb "locked_attributes", default: {}
     t.string "name", null: false
     t.text "notes"
     t.uuid "parent_entry_id"
     t.string "plaid_id"
+    t.string "posting_role", default: "primary", null: false
     t.datetime "reconciled_at"
     t.uuid "reconciled_by_statement_id"
     t.string "source"
@@ -734,6 +753,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
     t.index ["entryable_type"], name: "index_entries_on_entryable_type"
     t.index ["import_id"], name: "index_entries_on_import_id"
     t.index ["import_locked"], name: "index_entries_on_import_locked_true", where: "(import_locked = true)"
+    t.index ["journal_id", "posting_role"], name: "index_entries_on_journal_id_and_posting_role"
+    t.index ["journal_id"], name: "index_entries_on_journal_id"
     t.index ["parent_entry_id"], name: "index_entries_on_parent_entry_id"
     t.index ["reconciled_by_statement_id"], name: "index_entries_on_reconciled_by_statement", where: "(reconciled_by_statement_id IS NOT NULL)"
     t.index ["user_modified"], name: "index_entries_on_user_modified_true", where: "(user_modified = true)"
@@ -1517,6 +1538,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
     t.index ["token_digest"], name: "index_invite_codes_on_token_digest", unique: true, where: "(token_digest IS NOT NULL)"
   end
 
+  create_table "journals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "currency", null: false
+    t.date "date", null: false
+    t.text "description", null: false
+    t.string "external_id"
+    t.uuid "family_id", null: false
+    t.string "kind", default: "standard", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "source"
+    t.datetime "updated_at", null: false
+    t.index ["family_id", "date"], name: "index_journals_on_family_id_and_date"
+    t.index ["family_id", "source", "external_id"], name: "index_journals_on_family_source_external_id", unique: true, where: "((external_id IS NOT NULL) AND (source IS NOT NULL))"
+    t.index ["family_id"], name: "index_journals_on_family_id"
+  end
+
   create_table "kraken_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "account_id", null: false
     t.string "account_type"
@@ -1556,6 +1593,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
     t.index ["status"], name: "index_kraken_items_on_status"
   end
 
+  create_table "ledger_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "locked_attributes", default: {}, null: false
+    t.string "subtype"
+    t.datetime "updated_at", null: false
+  end
+
   create_table "llm_usages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.integer "cache_creation_tokens"
     t.integer "cache_read_tokens"
@@ -1593,7 +1637,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
     t.jsonb "variable_rate_schedule", default: {}, null: false
     t.check_constraint "down_payment IS NULL OR down_payment >= 0::numeric", name: "chk_loans_down_payment_non_negative"
     t.check_constraint "insurance_rate IS NULL OR insurance_rate >= 0::numeric", name: "chk_loans_insurance_rate_non_negative"
-    t.check_constraint "insurance_rate_type IS NULL OR (insurance_rate_type::text = ANY (ARRAY['level_term'::character varying, 'decreasing_life'::character varying]::text[]))", name: "chk_loans_insurance_rate_type"
+    t.check_constraint "insurance_rate_type IS NULL OR (insurance_rate_type::text = ANY (ARRAY['level_term'::character varying::text, 'decreasing_life'::character varying::text]))", name: "chk_loans_insurance_rate_type"
   end
 
   create_table "lunchflow_accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2937,6 +2981,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
   add_foreign_key "akahu_accounts", "akahu_items"
   add_foreign_key "akahu_items", "families"
   add_foreign_key "api_keys", "users"
+  add_foreign_key "balance_observations", "accounts"
   add_foreign_key "balances", "accounts", on_delete: :cascade
   add_foreign_key "binance_accounts", "binance_items"
   add_foreign_key "binance_items", "families"
@@ -2968,6 +3013,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
   add_foreign_key "entries", "accounts", on_delete: :cascade
   add_foreign_key "entries", "entries", column: "parent_entry_id", on_delete: :cascade
   add_foreign_key "entries", "imports"
+  add_foreign_key "entries", "journals"
   add_foreign_key "eval_results", "eval_runs"
   add_foreign_key "eval_results", "eval_samples"
   add_foreign_key "eval_runs", "eval_datasets"
@@ -3024,6 +3070,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
   add_foreign_key "insights", "families"
   add_foreign_key "invitations", "families"
   add_foreign_key "invitations", "users", column: "inviter_id"
+  add_foreign_key "journals", "families"
   add_foreign_key "kraken_accounts", "kraken_items"
   add_foreign_key "kraken_items", "families"
   add_foreign_key "llm_usages", "families"

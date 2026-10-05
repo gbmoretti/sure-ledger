@@ -5,7 +5,7 @@ module Accounting
   class BalanceObservation < ApplicationRecord
     self.table_name = "balance_observations"
 
-    belongs_to :account
+    belongs_to :account, class_name: "::Account"
 
     validates :amount, :currency, :observed_at, :source, :kind, presence: true
 
